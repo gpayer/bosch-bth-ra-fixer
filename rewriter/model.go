@@ -29,6 +29,7 @@ type Config struct {
 	Device                     Device         `json:"device"`
 	MaxTemp                    string         `json:"max_temp"`
 	MinTemp                    string         `json:"min_temp"`
+	ModeCommandTemplate        string         `json:"mode_command_template"`
 	ModeCommandTopic           string         `json:"mode_command_topic"`
 	ModeStateTemplate          string         `json:"mode_state_template"`
 	ModeStateTopic             string         `json:"mode_state_topic"`

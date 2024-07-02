@@ -15,7 +15,7 @@
     ],
     "manufacturer": "Bosch",
     "model": "Radiator thermostat II (BTH-RA)",
-    "name": "thermostat_arbeitszimmer",
+    "name": "Thermostat Arbeitszimmer",
     "sw_version": "3.05.09",
     "via_device": "zigbee2mqtt_bridge_0x00124b002b4866eb"
   },

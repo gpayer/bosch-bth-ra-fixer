@@ -10,6 +10,20 @@ services:
       - mqtt-data:/mosquitto/data
       - mqtt-log:/mosquitto/log
 
+  homeassistant:
+    # container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    expose:
+      - 8123
+    ports:
+      - "8123:8123"
+    volumes:
+      - ha-config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+
 volumes:
   mqtt-data:
   mqtt-log:
+  ha-config:

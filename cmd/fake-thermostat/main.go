@@ -8,10 +8,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
-	"github.com/gpayer/bosch-bth-ra-fixer/rewriter"
+	"github.com/gpayer/bosch-bth-ra-fixer/mock"
 )
 
 func randomString(n int) string {
@@ -23,8 +24,9 @@ func randomString(n int) string {
 	return string(b)
 }
 
-var clientID = "bosch-bth-ra-fixer-" + randomString(8) // Change this to something random if using a public test server
-const topic = "homeassistant/climate/#"
+var clientID = "fake-thermostat-" + randomString(8) // Change this to something random if using a public test server
+const modeCommandTopic = "zigbee2mqtt/thermostat_arbeitszimmer/set"
+const temperatureCommandTopic = "zigbee2mqtt/thermostat_arbeitszimmer/set/occupied_heating_setpoint"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -35,6 +37,9 @@ func main() {
 		panic(err)
 	}
 
+	router := paho.NewStandardRouter()
+	router.DefaultHandler(func(p *paho.Publish) { fmt.Printf("DEBUG: defaulthandler received message with topic: %s\n", p.Topic) })
+
 	cliCfg := autopaho.ClientConfig{
 		ServerUrls:                    []*url.URL{u},
 		KeepAlive:                     20,
@@ -44,7 +49,8 @@ func main() {
 			fmt.Println("DEBUG: mqtt connection up")
 			if _, err := cm.Subscribe(context.Background(), &paho.Subscribe{
 				Subscriptions: []paho.SubscribeOptions{
-					{Topic: topic, QoS: 1},
+					{Topic: modeCommandTopic, QoS: 1},
+					{Topic: temperatureCommandTopic, QoS: 1},
 				},
 			}); err != nil {
 				fmt.Printf("ERROR: failed to subscribe: %s", err)
@@ -55,7 +61,10 @@ func main() {
 		ClientConfig: paho.ClientConfig{
 			ClientID: clientID,
 			OnPublishReceived: []func(paho.PublishReceived) (bool, error){
-				rewriter.HandleClimateConfigMessage,
+				func(pr paho.PublishReceived) (bool, error) {
+					router.Route(pr.Packet.Packet())
+					return true, nil
+				},
 			},
 			OnClientError: func(err error) { fmt.Printf("client error: %s\n", err) },
 			OnServerDisconnect: func(d *paho.Disconnect) {
@@ -76,7 +85,20 @@ func main() {
 		panic(err)
 	}
 
-	<-ctx.Done()
+	mockClimate := mock.NewClimate(c, "zigbee2mqtt/thermostat_arbeitszimmer", router)
+
+	t := time.NewTicker(5 * time.Second)
+	defer t.Stop()
+
+	done := false
+	for !done {
+		select {
+		case <-t.C:
+			mockClimate.Run()
+		case <-ctx.Done():
+			done = true
+		}
+	}
 
 	fmt.Println("INFO: signal caught - exiting")
 	<-c.Done()
