@@ -30,7 +30,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	u, err := url.Parse("mqtt://localhost:1883")
+	mqttURI := os.Getenv("MQTT_URI")
+	if mqttURI == "" {
+		mqttURI = "mqtt://localhost:1883"
+	}
+
+	u, err := url.Parse(mqttURI)
 	if err != nil {
 		panic(err)
 	}

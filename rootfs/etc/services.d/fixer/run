@@ -1,0 +1,16 @@
+#!/usr/bin/with-contenv bashio
+
+bashio::log.info "Starting Bosch BTH-RA fixer"
+
+declare mqtt_uri
+mqtt_uri=${MQTT_URI}
+
+if [ "$mqtt_uri" == "" ] ; then
+  mqtt_uri=$(bashio::config 'mqtt_uri')
+fi
+
+bashio::log.info "Using mqtt server: $mqtt_uri"
+
+export MQTT_URI=$mqtt_uri
+
+exec /usr/bin/fixer
