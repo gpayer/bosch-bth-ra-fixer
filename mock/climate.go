@@ -36,6 +36,8 @@ func NewClimate(conn *autopaho.ConnectionManager, topic string, router paho.Rout
 	router.RegisterHandler(topic+"/set", c.handleOperatingModeSet)
 	router.RegisterHandler(topic+"/set/occupied_heating_setpoint", c.handleOccupiedHeatingSetpointSet)
 
+	// TODO: get id for climate device from parameter, publish discovery config
+
 	c.conn.Publish(context.Background(), &paho.Publish{
 		QoS:     1,
 		Retain:  true,

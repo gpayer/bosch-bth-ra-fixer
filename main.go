@@ -34,6 +34,8 @@ func main() {
 	if mqttURI == "" {
 		mqttURI = "mqtt://localhost:1883"
 	}
+	mqttUser := os.Getenv("MQTT_USER")
+	mqttPass := []byte(os.Getenv("MQTT_PASSWORD"))
 
 	u, err := url.Parse(mqttURI)
 	if err != nil {
@@ -42,6 +44,8 @@ func main() {
 
 	cliCfg := autopaho.ClientConfig{
 		ServerUrls:                    []*url.URL{u},
+		ConnectUsername:               mqttUser,
+		ConnectPassword:               mqttPass,
 		KeepAlive:                     20,
 		CleanStartOnInitialConnection: false,
 		SessionExpiryInterval:         60,
@@ -75,10 +79,12 @@ func main() {
 
 	c, err := autopaho.NewConnection(ctx, cliCfg)
 	if err != nil {
-		panic(err)
+		fmt.Printf("ERROR: failed to create connection: %s\n", err)
+		return
 	}
 	if err = c.AwaitConnection(ctx); err != nil {
-		panic(err)
+		fmt.Printf("ERROR: failed to connect: %s\n", err)
+		return
 	}
 
 	<-ctx.Done()

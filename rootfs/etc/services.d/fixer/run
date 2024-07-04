@@ -3,14 +3,35 @@
 bashio::log.info "Starting Bosch BTH-RA fixer"
 
 declare mqtt_uri
-mqtt_uri=${MQTT_URI}
+mqtt_uri=${MQTT_URI:-""}
+mqtt_user=${MQTT_USER:-""}
+mqtt_password=${MQTT_PASSWORD:-""}
 
-if [ "$mqtt_uri" == "" ] ; then
-  mqtt_uri=$(bashio::config 'mqtt_uri')
+if [[ -z "$mqtt_uri" ]]; then
+  if bashio::config.is_empty 'mqtt.uri' && bashio::var.has_value "$(bashio::services 'mqtt')"; then
+    if bashio::var.true "$(bashio::services 'mqtt' 'ssl')"; then
+        mqtt_uri="mqtts://$(bashio::services 'mqtt' 'host'):$(bashio::services 'mqtt' 'port')"
+    else
+        mqtt_uri="mqtt://$(bashio::services 'mqtt' 'host'):$(bashio::services 'mqtt' 'port')"
+    fi
+    mqtt_user="$(bashio::services 'mqtt' 'username')"
+    mqtt_password="$(bashio::services 'mqtt' 'password')"
+  else
+    mqtt_uri=$(bashio::config 'mqtt.uri')
+
+    if [[ -z "$mqtt_user" ]]; then
+      mqtt_user=$(bashio::config 'mqtt.user')
+    fi
+    if [[ -z "$mqtt_password" ]]; then
+      mqtt_password=$(bashio::config 'mqtt.password')
+    fi
+  fi
 fi
 
-bashio::log.info "Using mqtt server: $mqtt_uri"
+bashio::log.info "Using mqtt server: $mqtt_uri, user: $mqtt_user, password: $mqtt_password"
 
 export MQTT_URI=$mqtt_uri
+export MQTT_USER="$mqtt_user"
+export MQTT_PASSWORD="$mqtt_password"
 
 exec /usr/bin/fixer
