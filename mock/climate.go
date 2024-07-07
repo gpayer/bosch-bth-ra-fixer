@@ -14,16 +14,18 @@ type Climate struct {
 	mtx                     sync.Mutex
 	conn                    *autopaho.ConnectionManager
 	topic                   string
+	deviceID                string
 	RunningState            string  `json:"running_state"` // idle, heat
 	LocalTemperature        float64 `json:"local_temperature"`
 	OperatingMode           string  `json:"operating_mode"` // pause, manual, schedule
 	OccupiedHeatingSetpoint float64 `json:"occupied_heating_setpoint"`
 }
 
-func NewClimate(conn *autopaho.ConnectionManager, topic string, router paho.Router) *Climate {
+func NewClimate(conn *autopaho.ConnectionManager, deviceID string, router paho.Router) *Climate {
 	c := &Climate{
 		conn:                    conn,
-		topic:                   topic,
+		topic:                   "zigbee2mqtt/" + deviceID,
+		deviceID:                deviceID,
 		RunningState:            "idle",
 		LocalTemperature:        21.0,
 		OperatingMode:           "pause",
@@ -33,16 +35,21 @@ func NewClimate(conn *autopaho.ConnectionManager, topic string, router paho.Rout
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
-	router.RegisterHandler(topic+"/set", c.handleOperatingModeSet)
-	router.RegisterHandler(topic+"/set/occupied_heating_setpoint", c.handleOccupiedHeatingSetpointSet)
-
-	// TODO: get id for climate device from parameter, publish discovery config
+	router.RegisterHandler(c.topic+"/set", c.handleOperatingModeSet)
+	router.RegisterHandler(c.topic+"/set/occupied_heating_setpoint", c.handleOccupiedHeatingSetpointSet)
 
 	c.conn.Publish(context.Background(), &paho.Publish{
 		QoS:     1,
 		Retain:  true,
 		Topic:   "zigbee2mqtt/bridge/state",
 		Payload: []byte(`{"state":"online"}`),
+	})
+
+	c.conn.Publish(context.Background(), &paho.Publish{
+		QoS:     1,
+		Retain:  true,
+		Topic:   "homeassistant/climate/" + deviceID + "/config",
+		Payload: []byte(createHAConfigPayload(deviceID)),
 	})
 
 	c.publishState()
@@ -147,4 +154,51 @@ func (c *Climate) Run() {
 	if doPublish {
 		c.publishState()
 	}
+}
+
+func createHAConfigPayload(deviceID string) string {
+	return `
+{
+  "action_template": "{% set values = {None:None,'idle':'idle','heat':'heating','cool':'cooling','fan_only':'fan'} %}{{ values[value_json.running_state] }}",
+  "action_topic": "zigbee2mqtt/` + deviceID + `",
+  "availability": [
+    {
+      "topic": "zigbee2mqtt/bridge/state",
+      "value_template": "{{ value_json.state }}"
+    }
+  ],
+  "current_temperature_template": "{{ value_json.local_temperature }}",
+  "current_temperature_topic": "zigbee2mqtt/` + deviceID + `",
+  "device": {
+    "identifiers": [
+      "zigbee2mqtt_` + deviceID + `"
+    ],
+    "manufacturer": "Bosch",
+    "model": "Radiator thermostat II (BTH-RA)",
+    "name": "Thermostat Arbeitszimmer",
+    "sw_version": "3.05.09",
+    "via_device": "zigbee2mqtt_bridge_0x00124b002b4866eb"
+  },
+  "max_temp": "30",
+  "min_temp": "5",
+  "mode_command_topic": "zigbee2mqtt/` + deviceID + `/set/system_mode",
+  "mode_state_template": "{{ value_json.system_mode }}",
+  "mode_state_topic": "zigbee2mqtt/` + deviceID + `",
+  "modes": [
+    "heat"
+  ],
+  "object_id": "` + deviceID + `",
+  "origin": {
+    "name": "Zigbee2MQTT",
+    "sw": "1.38.0",
+    "url": "https://www.zigbee2mqtt.io"
+  },
+  "temp_step": 0.5,
+  "temperature_command_topic": "zigbee2mqtt/` + deviceID + `/set/occupied_heating_setpoint",
+  "temperature_state_template": "{{ value_json.occupied_heating_setpoint }}",
+  "temperature_state_topic": "zigbee2mqtt/` + deviceID + `",
+  "temperature_unit": "C",
+  "unique_id": "` + deviceID + `_climate_zigbee2mqtt"
+}
+  `
 }

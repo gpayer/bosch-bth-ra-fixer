@@ -25,10 +25,14 @@ func randomString(n int) string {
 }
 
 var clientID = "fake-thermostat-" + randomString(8) // Change this to something random if using a public test server
-const modeCommandTopic = "zigbee2mqtt/thermostat_arbeitszimmer/set"
-const temperatureCommandTopic = "zigbee2mqtt/thermostat_arbeitszimmer/set/occupied_heating_setpoint"
+const modeCommandTopic = "zigbee2mqtt/%s/set"
+const temperatureCommandTopic = "zigbee2mqtt/%s/set/occupied_heating_setpoint"
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: fake-thermostat <device-id>")
+		os.Exit(1)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -44,6 +48,7 @@ func main() {
 		panic(err)
 	}
 
+	deviceID := os.Args[1]
 	router := paho.NewStandardRouter()
 	router.DefaultHandler(func(p *paho.Publish) { fmt.Printf("DEBUG: defaulthandler received message with topic: %s\n", p.Topic) })
 
@@ -58,8 +63,8 @@ func main() {
 			fmt.Println("DEBUG: mqtt connection up")
 			if _, err := cm.Subscribe(context.Background(), &paho.Subscribe{
 				Subscriptions: []paho.SubscribeOptions{
-					{Topic: modeCommandTopic, QoS: 1},
-					{Topic: temperatureCommandTopic, QoS: 1},
+					{Topic: fmt.Sprintf(modeCommandTopic, deviceID), QoS: 1},
+					{Topic: fmt.Sprintf(temperatureCommandTopic, deviceID), QoS: 1},
 				},
 			}); err != nil {
 				fmt.Printf("ERROR: failed to subscribe: %s", err)
@@ -94,7 +99,7 @@ func main() {
 		panic(err)
 	}
 
-	mockClimate := mock.NewClimate(c, "zigbee2mqtt/thermostat_arbeitszimmer", router)
+	mockClimate := mock.NewClimate(c, deviceID, router)
 
 	t := time.NewTicker(5 * time.Second)
 	defer t.Stop()
