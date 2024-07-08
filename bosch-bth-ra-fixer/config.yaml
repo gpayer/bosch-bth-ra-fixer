@@ -2,6 +2,7 @@ name: Bosch BTH-RA Fixer
 version: 0.0.2
 slug: bosch-bth-ra-fixer
 description: Fixes broken config produced by Zigbee2MQTT for Bosch BTH-RA.
+url: "https://github.com/gpayer/bosch-bth-ra-fixer/tree/main/bosch-bth-ra-fixer"
 arch: [armhf, armv7, aarch64, amd64, i386]
 init: false
 services:
